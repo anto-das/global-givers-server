@@ -1,0 +1,119 @@
+const express = require('express');
+const cors = require('cors')
+require('dotenv').config()
+const app = express();
+const port = process.env.port || 4000;
+
+// use middleware
+app.use(cors())
+app.use(express.json())
+
+
+
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.hojma.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
+async function run() {
+  try {
+    // volunteerCollection
+    const volunteerCollections = client.db("GlobalGivers").collection
+    ('volunteers');
+    // requestCollection
+    const requestCollection = client.db("GlobalGivers").collection("requests");
+    // home page get limited data 
+    app.get('/volunteer-needs', async(req,res) =>{
+      const result = await volunteerCollections.find()
+      .sort({deadline:1})
+      .limit(6)
+      .toArray();
+      res.send(result)
+    })
+    // all volunteer get operation
+    app.get('/all-volunteers',async(req,res) =>{
+      const title = req.query.postTitle;
+      if(title){
+        const query = {postTitle: title}
+       const result = await volunteerCollections.find(query).toArray()
+       return res.send(result)
+      }
+      const result = await volunteerCollections.find().toArray()
+      res.send(result)
+    })
+    // get volunteer single data by id
+    app.get("/volunteers/:id", async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id :new ObjectId(id)}
+      const result = await volunteerCollections.findOne(query)
+      res.send(result)
+    })
+
+    // volunteer posts save in the DB 
+    app.post("/volunteer-posts",async(req,res) =>{
+      const addData = req.body;
+      const result = await volunteerCollections.insertOne(addData)
+      res.send(result);
+    })
+    //  volunteer requests save in the DB
+    app.post('/volunteer-requests', async(req,res)=>{
+      const requestData = req.body;
+      const query = {volunteerEmail:req.body.
+volunteerEmail}
+// check user already request or not
+const userAlreadyExist = await requestCollection.findOne(query);
+if(userAlreadyExist){
+  return res
+  .status(400)
+  .send("you have already a request in this post")
+}
+// save the requests in another DB collection
+      const result = await requestCollection.insertOne(requestData);
+      const filter = {_id: new ObjectId(requestData.requestId)}
+      const updatedDoc={
+        $inc:{volunteersNeeded:-1}
+      }
+      const updateVolunteersNeeded = await volunteerCollections.updateOne(filter,updatedDoc)
+        res.send(result)
+    })
+    // find data from DB using query email
+    app.get("/volunteer-need-posts", async(req,res) =>{
+      const email = req.query.organizerEmail;
+      if(!email){
+        return res.status(403).send({message :"organizer email required"})
+      }
+      const query = {organizerEmail : email}
+      const result = await volunteerCollections.find(query).toArray()
+      if(result.length === 0){
+        return res.status(404).send({success : false , message:'no posts found for this email'})
+      }
+      res.send(result)
+    })
+    // delete a single document by id
+    app.delete("/volunteer-posts/:id", async(req,res) =>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result = await volunteerCollections.deleteOne(query)
+      res.send(result)
+    })
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
+  }
+}
+run().catch(console.dir);
+
+
+app.get("/",(req,res) =>{
+    res.send("hello globalGivers volunteer hunter server")
+})
+app.listen(port, () =>{
+    console.log("server running port is:",port)
+})
