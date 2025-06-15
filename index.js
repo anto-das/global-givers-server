@@ -8,7 +8,7 @@ const port = process.env.port || 4000;
 app.use(cors())
 app.use(express.json())
 
-
+// const uri = "mongodb+srv://<db_username>:<db_password>@cluster0.hojma.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.hojma.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -64,8 +64,8 @@ async function run() {
     //  volunteer requests save in the DB
     app.post('/volunteer-requests', async(req,res)=>{
       const requestData = req.body;
-      const query = {volunteerEmail:req.body.
-volunteerEmail}
+      const query = {requestId:req.body.
+requestId}
 // check user already request or not
 const userAlreadyExist = await requestCollection.findOne(query);
 if(userAlreadyExist){
@@ -82,7 +82,7 @@ if(userAlreadyExist){
       const updateVolunteersNeeded = await volunteerCollections.updateOne(filter,updatedDoc)
         res.send(result)
     })
-    // find data from DB using query email
+    // find volunteer my posts data from DB using query email
     app.get("/volunteer-need-posts", async(req,res) =>{
       const email = req.query.organizerEmail;
       if(!email){
@@ -95,7 +95,55 @@ if(userAlreadyExist){
       }
       res.send(result)
     })
-    // delete a single document by id
+    // find be a volunteer request from DB using query email
+    app.get("/my-request-volunteer", async(req,res) =>{
+      const email = req.query.volunteerEmail;
+      if(!email){
+        return res.status(404).send({message :"volunteer email required"})
+      }
+      const query = {volunteerEmail : email}
+      const result = await requestCollection.find(query).toArray()
+      if(result.length === 0){
+        return res.status(404).send({success:false, message:"no volunteer request posts available"})
+      }
+      res.send(result)
+    })
+     // get volunteer single data by id
+    app.get("/volunteer-update/:id", async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id :new ObjectId(id)}
+      const result = await volunteerCollections.findOne(query)
+      res.send(result)
+    })
+    // update a single data by id 
+    app.put("/volunteer-update/:id", async(req,res) =>{
+      const id = req.params.id
+      const updatedPost = req.body;
+      const filter = {_id : new ObjectId(id)}
+      const updatedDoc ={
+        $set:{
+          organizerName:updatedPost.organizerName,
+          organizerEmail:updatedPost.organizerEmail,
+          thumbnail:updatedPost.thumbnail,
+          postTitle:updatedPost.postTitle,
+          location:updatedPost.location,
+          category:updatedPost.category,
+          deadline:updatedPost.deadline,
+          volunteersNeeded:updatedPost.volunteersNeeded,
+          description:updatedPost.description
+        }
+      }
+      const result = await volunteerCollections.updateOne(filter,updatedDoc)
+      res.send(result)
+    })
+    // delete a single document by id from requestCollections
+    app.delete('/my-volunteer-request/:id', async(req,res) =>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result = await requestCollection.deleteOne(query)
+      res.send(result)
+    })
+    // delete a single document by id from volunteerCollections
     app.delete("/volunteer-posts/:id", async(req,res) =>{
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
