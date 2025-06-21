@@ -1,5 +1,6 @@
-const express = require('express');
+const express = require('express')
 const cors = require('cors')
+const jwt = require('jsonwebtoken')
 require('dotenv').config()
 const app = express();
 const port = process.env.port || 4000;
@@ -28,6 +29,12 @@ async function run() {
     ('volunteers');
     // requestCollection
     const requestCollection = client.db("GlobalGivers").collection("requests");
+    // auth related api
+    app.post('/jwt', async(req,res) =>{
+      const user = req.body
+      const token = jwt.sign(user,"secret",{expiresIn:"1h"})
+      res.send(token)
+    })
     // home page get limited data 
     app.get('/volunteer-needs', async(req,res) =>{
       const result = await volunteerCollections.find()
