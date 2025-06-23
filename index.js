@@ -7,7 +7,11 @@ const app = express();
 const port = process.env.port || 4000;
 
 // use middleware
-app.use(cors())
+app.use(cors({
+  origin:['http://localhost:5173'],
+  credentials:true
+}))
+app.use(cookieParser())
 app.use(express.json())
 
 // const uri = "mongodb+srv://<db_username>:<db_password>@cluster0.hojma.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
@@ -97,6 +101,7 @@ if(userAlreadyExist){
     // find volunteer my posts data from DB using query email
     app.get("/volunteer-need-posts", async(req,res) =>{
       const email = req.query.organizerEmail;
+     console.log("jwt token:",req.cookies)
       if(!email){
         return res.status(403).send({message :"organizer email required"})
       }
