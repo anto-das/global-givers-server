@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors')
+const cookieParser = require('cookie-parser')
 const jwt = require('jsonwebtoken')
 require('dotenv').config()
 const app = express();
@@ -32,8 +33,12 @@ async function run() {
     // auth related api
     app.post('/jwt', async(req,res) =>{
       const user = req.body
-      const token = jwt.sign(user,"secret",{expiresIn:"1h"})
-      res.send(token)
+      const token = jwt.sign(user,process.env.JWT_SECRET_TOKEN,{expiresIn:"1h"})
+      res.cookie('token',token,{
+        httpOnly:true,
+        secure:false,
+      })
+      .send({success:true})
     })
     // home page get limited data 
     app.get('/volunteer-needs', async(req,res) =>{
