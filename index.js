@@ -11,8 +11,22 @@ app.use(cors({
   origin:['http://localhost:5173'],
   credentials:true
 }))
-app.use(cookieParser())
-app.use(express.json())
+// middleware
+app.use(express.json());
+app.use(cookieParser());
+
+const verifyToken = (req,res,next) =>{
+  const token = req.cookies
+  if(!token){
+    return res.status(401).send({message:"Unauthorized access"})
+  }
+  jwt.verify(token,process.env.JWT_SECRET_TOKEN,(err, decoded) =>{
+    if(err){
+      return res.status(401).send({message:"forbidden access"})
+    }
+  })
+  next();
+}
 
 // const uri = "mongodb+srv://<db_username>:<db_password>@cluster0.hojma.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
@@ -36,13 +50,14 @@ async function run() {
     const requestCollection = client.db("GlobalGivers").collection("requests");
     // auth related api
     app.post('/jwt', async(req,res) =>{
-      const user = req.body
-      const token = jwt.sign(user,process.env.JWT_SECRET_TOKEN,{expiresIn:"1h"})
-      res.cookie('token',token,{
+      const user = req.body;
+      const token = jwt.sign(user,process.env.JWT_SECRET_TOKEN,{expiresIn:'2h'})
+      res
+      .cookie('token',token,{
         httpOnly:true,
-        secure:false,
+        secure:false
       })
-      .send({success:true})
+      .send({success: true})
     })
     // home page get limited data 
     app.get('/volunteer-needs', async(req,res) =>{
@@ -99,9 +114,8 @@ if(userAlreadyExist){
         res.send(result)
     })
     // find volunteer my posts data from DB using query email
-    app.get("/volunteer-need-posts", async(req,res) =>{
+    app.get("/volunteer-need-posts",verifyToken,async(req,res) =>{
       const email = req.query.organizerEmail;
-     console.log("jwt token:",req.cookies)
       if(!email){
         return res.status(403).send({message :"organizer email required"})
       }
