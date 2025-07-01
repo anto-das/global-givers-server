@@ -16,16 +16,17 @@ app.use(express.json());
 app.use(cookieParser());
 
 const verifyToken = (req,res,next) =>{
-  const token = req.cookies
+  const token = req.cookies?.token
   if(!token){
     return res.status(401).send({message:"Unauthorized access"})
   }
   jwt.verify(token,process.env.JWT_SECRET_TOKEN,(err, decoded) =>{
     if(err){
-      return res.status(401).send({message:"forbidden access"})
+      return res.status(403).send({message:"forbidden access"})
     }
+    req.user = decoded
+    next()
   })
-  next();
 }
 
 // const uri = "mongodb+srv://<db_username>:<db_password>@cluster0.hojma.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
@@ -48,7 +49,7 @@ async function run() {
     ('volunteers');
     // requestCollection
     const requestCollection = client.db("GlobalGivers").collection("requests");
-    // auth related api
+    // auth related jwt api
     app.post('/jwt', async(req,res) =>{
       const user = req.body;
       const token = jwt.sign(user,process.env.JWT_SECRET_TOKEN,{expiresIn:'2h'})
@@ -59,6 +60,15 @@ async function run() {
       })
       .send({success: true})
     })
+    // after logout remove jwt token api
+    app.post('/logout', async(req,res) =>{
+      res
+      .clearCookie('token',{
+        httpOnly:true,
+        secure:false,
+      })
+      .send({success:true})
+    })
     // home page get limited data 
     app.get('/volunteer-needs', async(req,res) =>{
       const result = await volunteerCollections.find()
@@ -68,7 +78,7 @@ async function run() {
       res.send(result)
     })
     // all volunteer get operation
-    app.get('/all-volunteers',async(req,res) =>{
+    app.get('/all-volunteers',verifyToken,async(req,res) =>{
       const title = req.query.postTitle;
       if(title){
         const query = {postTitle: title}
@@ -79,7 +89,7 @@ async function run() {
       res.send(result)
     })
     // get volunteer single data by id
-    app.get("/volunteers/:id", async(req,res)=>{
+    app.get("/volunteers/:id", verifyToken,async(req,res)=>{
       const id = req.params.id;
       const query = {_id :new ObjectId(id)}
       const result = await volunteerCollections.findOne(query)
@@ -87,13 +97,13 @@ async function run() {
     })
 
     // volunteer posts save in the DB 
-    app.post("/volunteer-posts",async(req,res) =>{
+    app.post("/volunteer-posts",verifyToken,async(req,res) =>{
       const addData = req.body;
       const result = await volunteerCollections.insertOne(addData)
       res.send(result);
     })
     //  volunteer requests save in the DB
-    app.post('/volunteer-requests', async(req,res)=>{
+    app.post('/volunteer-requests', verifyToken,async(req,res)=>{
       const requestData = req.body;
       const query = {requestId:req.body.
 requestId}
@@ -119,6 +129,9 @@ if(userAlreadyExist){
       if(!email){
         return res.status(403).send({message :"organizer email required"})
       }
+      if(req.user.email !== email){
+        return res.status(401).send({message:"forbidden access"})
+      }
       const query = {organizerEmail : email}
       const result = await volunteerCollections.find(query).toArray()
       if(result.length === 0){
@@ -127,10 +140,13 @@ if(userAlreadyExist){
       res.send(result)
     })
     // find be a volunteer request from DB using query email
-    app.get("/my-request-volunteer", async(req,res) =>{
+    app.get("/my-request-volunteer", verifyToken,async(req,res) =>{
       const email = req.query.volunteerEmail;
       if(!email){
         return res.status(404).send({message :"volunteer email required"})
+      }
+      if(req.user.email !==email){
+        return res.status(401).send({message:"forbidden access"})
       }
       const query = {volunteerEmail : email}
       const result = await requestCollection.find(query).toArray()
@@ -140,14 +156,14 @@ if(userAlreadyExist){
       res.send(result)
     })
      // get volunteer single data by id
-    app.get("/volunteer-update/:id", async(req,res)=>{
+    app.get("/volunteer-update/:id", verifyToken,async(req,res)=>{
       const id = req.params.id;
       const query = {_id :new ObjectId(id)}
       const result = await volunteerCollections.findOne(query)
       res.send(result)
     })
     // update a single data by id 
-    app.put("/volunteer-update/:id", async(req,res) =>{
+    app.put("/volunteer-update/:id", verifyToken,async(req,res) =>{
       const id = req.params.id
       const updatedPost = req.body;
       const filter = {_id : new ObjectId(id)}
@@ -168,14 +184,14 @@ if(userAlreadyExist){
       res.send(result)
     })
     // delete a single document by id from requestCollections
-    app.delete('/my-volunteer-request/:id', async(req,res) =>{
+    app.delete('/my-volunteer-request/:id', verifyToken,async(req,res) =>{
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
       const result = await requestCollection.deleteOne(query)
       res.send(result)
     })
     // delete a single document by id from volunteerCollections
-    app.delete("/volunteer-posts/:id", async(req,res) =>{
+    app.delete("/volunteer-posts/:id", verifyToken,async(req,res) =>{
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
       const result = await volunteerCollections.deleteOne(query)
