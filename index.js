@@ -8,7 +8,9 @@ const port = process.env.port || 4000;
 
 // use middleware
 app.use(cors({
-  origin:['http://localhost:5173'],
+  origin:['http://localhost:5173',
+    'https://global-givers.web.app',
+    'https://global-givers.firebaseapp.com'],
   credentials:true
 }))
 // middleware
@@ -55,8 +57,9 @@ async function run() {
       const token = jwt.sign(user,process.env.JWT_SECRET_TOKEN,{expiresIn:'2h'})
       res
       .cookie('token',token,{
-        httpOnly:true,
-        secure:false
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       })
       .send({success: true})
     })
@@ -64,8 +67,9 @@ async function run() {
     app.post('/logout', async(req,res) =>{
       res
       .clearCookie('token',{
-        httpOnly:true,
-        secure:false,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       })
       .send({success:true})
     })
